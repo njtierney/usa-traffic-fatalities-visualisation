@@ -1,0 +1,169 @@
+---
+title: "Nick's traffic analysis"
+output: html_notebook
+---
+
+```{r}
+# read in the data
+# library(foreign)
+# accidents <- read.dbf("data/accident.dbf")
+# feather::write_feather(accidents, "data/accidents.feather")
+
+```
+
+```{r load-libraries}
+library(feather)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(leaflet)
+
+```
+
+```{r read-data}
+
+accidents <- read_feather("data/accidents.feather")
+
+```
+
+
+```{r munge-data}
+
+# View(accidents)
+
+# let's change the names of the data to all lowercase
+names(accidents) <- tolower(names(accidents))
+
+# get rid of null island.
+accidents <- accidents %>% 
+    filter(longitud != 999.99990,
+           longitud != 888.88880,
+           longitud != 777.77770)
+
+```
+
+```{r}
+# include lower 48 states
+cont_us_accidents <- accidents %>%
+    filter(state !=2 ,
+           state != 15)
+
+```
+
+```{r}
+
+county_map_data <- map_data("county")
+
+state_map <- map_data("state")
+
+```
+
+```{r}
+
+map<-ggplot() + 
+  #Add county borders:
+  geom_polygon(data=county_map_data, aes(x=long,y=lat,group=group), colour = alpha("grey", 1/4), size = 0.2, fill = NA) +
+  #Add state borders:
+  geom_polygon(data = state_map, aes(x=long,y=lat,group=group), colour = "grey", fill = NA) +
+  #Add points (one per fatality):
+  geom_point(data=cont_us_accidents, aes(x=longitud, y=latitude), alpha=0.05, size=0.5, col="red") +
+  #Adjust the map projection
+  coord_map("albers",lat0=39, lat1=45) +
+  #Add a title:
+  ggtitle("Traffic Fatalities in 2015") +
+  #Adjust the theme:
+  theme_classic() +
+  theme(panel.border = element_blank(),
+        axis.text = element_blank(),
+        line = element_blank(),
+        axis.title = element_blank(),
+        plot.title = element_text(size=40, face="bold", family="Avenir Next"))
+
+```
+
+```{r}
+
+map
+
+```
+
+in leaflet
+
+```{r}
+
+leaflet(accidents) %>%
+    addTiles() %>%
+    addMarkers(
+        lng = ~longitud,
+        lat = ~latitude,
+        clusterOptions = markerClusterOptions()
+        )
+
+```
+
+General explorations
+
+By state
+
+```{r}
+
+accidents %>%
+    group_by(state) %>%
+    tally() %>%
+    ggplot(data = .,
+           aes(x = reorder(state, n),
+               y = n)) + 
+    geom_bar(stat = "identity") + 
+    coord_flip()
+               
+           
+```
+
+Daty of the week
+
+```{r}
+
+ggplot(data = accidents,
+       aes(x = factor(day_week))) + 
+    geom_bar()
+
+```
+
+Hour of the day
+
+```{r}
+
+ggplot(data = accidents,
+       aes(x = factor(hour))) + 
+    geom_bar()
+
+```
+
+Hour of the day, by day of the week
+
+```{r}
+
+ggplot(data = accidents,
+       aes(x = factor(hour))) + 
+    geom_bar() + 
+    facet_wrap(~day_week,
+               ncol = 2)
+
+```
+
+```{r}
+
+accidents %>%
+    group_by(hour, day_week) %>%
+    tally() %>%
+ggplot(data = .,
+       aes(x = factor(hour),
+           fill = factor(day_week),
+           y = n)) + 
+    geom_bar(stat = "identity")
+
+
+```
+
+That's all I got so far.
